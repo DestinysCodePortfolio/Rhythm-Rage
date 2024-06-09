@@ -110,6 +110,7 @@ void generateRandomArrow()
          }
         break;
     }
+        FillScreen(BLACK);
 }
 
 

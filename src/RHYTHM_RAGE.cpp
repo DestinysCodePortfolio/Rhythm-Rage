@@ -201,6 +201,7 @@ int Task1_Tick(int state)
             }
             else
             {
+                
                 i = 0;
                 currNote++;
             }
@@ -284,15 +285,16 @@ int Task2_Tick(int state)
                 FillScreen(BLACK);
             }
 
-            if (currNote % 4 == 0 && i <= pgm_read_word(&noteDurations[currNote]))
+            else if (currNote % 4 == 0 )
             {
                 generateRandomArrow();
             }
-            else
+            else 
             {
                 FillScreen(BLACK);
             }
         }
+       // FillScreen(BLACK);
         break;
 
     case SHOW_TAS:
@@ -316,25 +318,20 @@ int Task2_Tick(int state)
         break;
 
     case SHOW_OB:
-        if (currNote < 202)
-        {
-            if (currNote == 0)
-            {
-                FillScreen(BLACK);
-            }
+        if (currNote < 202){
+        
 
-            if (i <= pgm_read_word(&notesDurOb[currNote]))
+            if (currNote % 2 != 0 )
             {
                 generateRandomArrow();
             }
-            else
+        
+         else 
             {
                 FillScreen(BLACK);
+                
             }
         }
-        break;
-
-    default:
         break;
     }
 
@@ -351,7 +348,7 @@ typedef struct _task
 
 const unsigned long GCD_PERIOD = 1;
 const unsigned long TASK1_PERIOD = 10;
-const unsigned long TASK2_PERIOD = 2000;
+const unsigned long TASK2_PERIOD = 1000;
 
 task tasks[NUM_TASKS];
 
