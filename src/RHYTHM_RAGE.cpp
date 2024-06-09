@@ -301,6 +301,7 @@ int Task2_Tick(int state)
             if (currNote == 0)
             {
                 FillScreen(BLACK);
+                
             }
 
             if (currNote % 4 == 0 && i <= pgm_read_word(&noteLength[currNote]))
