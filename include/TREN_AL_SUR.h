@@ -227,7 +227,7 @@ const int song2[] PROGMEM = {
 
 
 
-const int noteLength[] PROGMEM =
+const int noteLength[] PROGMEM=
     {
     240,  //1
 

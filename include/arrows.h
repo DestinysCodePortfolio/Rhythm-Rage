@@ -1,8 +1,7 @@
-
 #ifndef ARROWS_H
 #define ARROWS_H
 #include "ST7735.h"
-#include <stdlib.h>
+#include <stdlib.h> //ONLY FOR RANDOM LIB
 #include "periph.h"
 
 bool left;
@@ -14,31 +13,35 @@ bool wait;
 int streak;
 int score;
 int yOffset = 0;
+int arrowDuration = 2 ; 
+int currentDuration = 0;
 
 
+enum ArrowState { ARROW_WAIT, ARROW_DISPLAY };
+ArrowState arrowState = ARROW_WAIT;
+int currentArrow = -1;
 
 void streakAndScore(int streak) {
-        if (streak > 3) {
-            score += 3;
-        } else {
-            streak++;
-            score += 1;
-        }
+    if (streak > 3) {
+        score += 3;
+    } else {
+        streak++;
+        score += 1;
+    }
 }
+
 void arrowLeft() {
-WriteToScreen(62, 64, 24, 26, GREEN);
-WriteToScreen(64, 66, 26, 28, GREEN);
-WriteToScreen(66, 68, 28, 30, GREEN);
-WriteToScreen(58, 60, 35, 37, GREEN); // DIAG
-WriteToScreen(60, 62, 34, 36, GREEN);
-WriteToScreen(62, 64, 33, 35, GREEN);
-WriteToScreen(64, 66, 32, 34, GREEN);
-WriteToScreen(66, 68, 31, 33, GREEN);
-WriteToScreen(67, 70, 31, 32, GREEN);
-WriteToScreen(50, 70, 29, 30, GREEN);
-
+    WriteToScreen(62, 64, 24, 26, GREEN);
+    WriteToScreen(64, 66, 26, 28, GREEN);
+    WriteToScreen(66, 68, 28, 30, GREEN);
+    WriteToScreen(58, 60, 35, 37, GREEN); // DIAG
+    WriteToScreen(60, 62, 34, 36, GREEN);
+    WriteToScreen(62, 64, 33, 35, GREEN);
+    WriteToScreen(64, 66, 32, 34, GREEN);
+    WriteToScreen(66, 68, 31, 33, GREEN);
+    WriteToScreen(67, 70, 31, 32, GREEN);
+    WriteToScreen(50, 70, 29, 30, GREEN);
 }
-
 
 void arrowRight() {
     WriteToScreen(58 , 60, 22 +20, 23 +20, RED); // DIAG
@@ -55,7 +58,6 @@ void arrowRight() {
     WriteToScreen(62, 80, 28  +20- 10, 30 +20 - 10, RED);
 }
 
-
 void arrowUp() {
     WriteToScreen(50, 52, 10, 30, YELLOW); // DIAG
     // WriteToScreen(48, 70, 11, 13, YELLOW);
@@ -66,7 +68,6 @@ void arrowUp() {
     WriteToScreen(44 + 14 - 1, 46 + 14 - 1, 17, 19, YELLOW);
     WriteToScreen(42 + 18 - 1, 44 + 18 - 1, 20, 22, YELLOW);
 }
-
 
 void arrowDown() {
     WriteToScreen(50, 52, 10, 30, BLUE); // DIAG
@@ -79,194 +80,43 @@ void arrowDown() {
     WriteToScreen(50 + 9, 52 + 9, 22, 24, BLUE);
 }
 
-
-void generateRandomArrow()
-{
-    int randomArrow = rand() % 4;
-    switch (randomArrow)
-    {
-    case 0:
-        arrowLeft();
-        if ( ADC_read(0) > 450 && ADC_read(0) < 470  ){
-        streakAndScore(streak);
-        }
-        break;
-    case 1:
-        arrowRight();
-         if ( ADC_read(0) > 268 && ADC_read(0) < 270  ){
-        streakAndScore(streak);
-         }
-        break;
-    case 2:
-        arrowUp();
-        if ( ADC_read(0) > 990 && ADC_read(0) < 1005  ){
-        streakAndScore(streak);
-        }
-        break;
-    case 3:
-        arrowDown();
-        if ( ADC_read(0) > 250 && ADC_read(0) <= 268  ){
-        streakAndScore(streak);
-         }
-        break;
+void displayArrow(int arrow) {
+    switch (arrow) {
+        case 0: arrowLeft(); break;
+        case 1: arrowRight(); break;
+        case 2: arrowUp(); break;
+        case 3: arrowDown(); break;
     }
-        FillScreen(BLACK);
 }
 
+void generateRandomArrow() {
+    if (arrowState == ARROW_WAIT) {
+        currentArrow = rand() % 4;
+        displayArrow(currentArrow);
+        arrowState = ARROW_DISPLAY;
+        currentDuration = 0;
+    }
+}
 
+void updateArrowState() {
+    if (arrowState == ARROW_DISPLAY) {
+        if (currentDuration >= arrowDuration) {
+            arrowState = ARROW_WAIT;
+            FillScreen(BLACK);
+        } else {
+            currentDuration++;
+            if (currentArrow == 0 && ADC_read(0) > 450 && ADC_read(0) < 470) {
+                streakAndScore(streak);
+            } else if (currentArrow == 1 && ADC_read(0) > 268 && ADC_read(0) < 270) {
+                streakAndScore(streak);
+            } else if (currentArrow == 2 && ADC_read(0) > 990 && ADC_read(0) < 1005) {
+                streakAndScore(streak);
+            } else if (currentArrow == 3 && ADC_read(0) > 250 && ADC_read(0) <= 268) {
+                streakAndScore(streak);
+            }
+        }
+    }
 
-
-
+}
 
 #endif
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

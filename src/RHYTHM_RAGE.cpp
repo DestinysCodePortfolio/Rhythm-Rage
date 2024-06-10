@@ -1,4 +1,4 @@
-#include "EEPROM.h"
+#include <avr/eeprom.h>
 #include "TITLE.h"
 #include "ST7735.h"
 #include "spiAVR.h"
@@ -10,6 +10,8 @@
 #include "serialATmega.h"
 #include "NOTES.h"
 #include "OBLIVION.h"
+
+   int arrowCounter = 0; // Counter to track arrow duration
 
 int HighScore;
 int SecHighScore;
@@ -25,6 +27,10 @@ bool C;
 bool D;
 
 uint8_t EEpromaddress = 130;
+
+#define EEPROM_ADDR_OB 0
+#define EEPROM_ADDR_HA 4
+#define EEPROM_ADDR_TAS 8
 
 void HardwareReset()
 {
@@ -47,16 +53,33 @@ void ST7735_init()
     _delay_ms(10);
     Command(0x29);
 }
-
-#define NUM_TASKS 2
+#define NUM_TASKS 5
 
 enum Task1
 {
     INIT_TASK1,
-    WAIT,
+    WAIT
+};
+
+enum Task2
+{
+    INIT_TASK2,
+    PLAY_OB,
+    SILENT_OB
+};
+
+enum Task3
+{
+    INIT_TASK3,
     PLAY_HA,
+    SILENT_HA
+};
+
+enum Task4
+{
+    INIT_TASK4,
     PLAY_TAS,
-    PLAY_OB
+    SILENT_TAS
 };
 
 int Task1_Tick(int state)
@@ -70,80 +93,83 @@ int Task1_Tick(int state)
         break;
 
     case WAIT:
-        D = false;
-        C = false;
-        B = false;
         if (matrixKey < 100 && matrixKey > 50)
         {
-            state = PLAY_HA;
+            C = true; // HELL_ABOVE
         }
         else if (matrixKey > 100 && matrixKey < 120)
         {
-            state = PLAY_OB;
+            B = true; // OBLIVION
         }
         else if (matrixKey < 50)
         {
-            state = PLAY_TAS;
-        }
-        else
-        {
-            state = WAIT;
+            D = true; // TREN_AL_SUR
         }
         break;
 
-    case PLAY_HA:
-        D = false;
-        C = true;
-        B = false;
-        if (currNote < 261)
-        {
-            state = PLAY_HA;
-        }
-        else
-        {
-            state = WAIT;
-        }
+    default:
         break;
+    }
+    return state;
+}
 
-    case PLAY_TAS:
-        D = true;
-        C = false;
-        B = false;
-        if (currNote < 158)
+int Task2_Tick(int state)
+{
+    switch (state)
+    {
+    case INIT_TASK2:
+        if (B)
         {
-            state = PLAY_TAS;
-        }
-        else
-        {
-            state = WAIT;
+            state = PLAY_OB;
+            currNote = 0;
+            i = 0;
         }
         break;
 
     case PLAY_OB:
-        D = false;
-        C = false;
-        B = true;
         if (currNote < 202)
         {
-            state = PLAY_OB;
+            if (i <= pgm_read_word(&notesDurOb[currNote]))
+            {
+                ICR1 = (16000000 / (8 * pgm_read_word(&song3[currNote]))) - 1;
+                OCR1A = ICR1 / 2;
+                i++;
+            }
+            else
+            {
+                i = 0;
+                currNote++;
+            }
         }
         else
         {
-            state = WAIT;
+            state = SILENT_OB;
         }
         break;
-    }
 
-    switch (state)
-    {
-    case INIT_TASK1:
-        OCR1A = ICR1;
-        currNote = 0;
+    case SILENT_OB:
+        OCR1A = 0; // Silence the buzzer
+        B = false;
+        state = INIT_TASK2;
         break;
 
-    case WAIT:
-        OCR1A = ICR1;
-        currNote = 0;
+    default:
+        break;
+    }
+    return state;
+}
+
+int Task3_Tick(int state)
+{
+    switch (state)
+    {
+    case INIT_TASK3:
+        if (C)
+        {
+            state = PLAY_HA;
+            currNote = 0;
+            i = 0;
+        }
         break;
 
     case PLAY_HA:
@@ -163,13 +189,37 @@ int Task1_Tick(int state)
         }
         else
         {
+            state = SILENT_HA;
+        }
+        break;
+
+    case SILENT_HA:
+        OCR1A = 0; // Silence the buzzer
+        C = false;
+        state = INIT_TASK3;
+        break;
+
+    default:
+        break;
+    }
+    return state;
+}
+
+int Task4_Tick(int state)
+{
+    switch (state)
+    {
+    case INIT_TASK4:
+        if (D)
+        {
+            state = PLAY_TAS;
             currNote = 0;
-            state = WAIT;
+            i = 0;
         }
         break;
 
     case PLAY_TAS:
-        if (currNote < 159)
+        if (currNote < 158)
         {
             if (i <= pgm_read_word(&noteLength[currNote]))
             {
@@ -185,32 +235,14 @@ int Task1_Tick(int state)
         }
         else
         {
-            currNote = 0;
-            state = WAIT;
+            state = SILENT_TAS;
         }
         break;
 
-    case PLAY_OB:
-        if (currNote < 202)
-        {
-            if (i <= pgm_read_word(&notesDurOb[currNote]))
-            {
-                ICR1 = (16000000 / (8 * pgm_read_word(&song3[currNote]))) - 1;
-                OCR1A = ICR1 / 2;
-                i++;
-            }
-            else
-            {
-                
-                i = 0;
-                currNote++;
-            }
-        }
-        else
-        {
-            currNote = 0;
-            state = WAIT;
-        }
+    case SILENT_TAS:
+        OCR1A = 0; // Silence the buzzer
+        D = false;
+        state = INIT_TASK4;
         break;
 
     default:
@@ -219,24 +251,25 @@ int Task1_Tick(int state)
     return state;
 }
 
-enum Task2
+enum Task5
 {
-    INIT_TASK2,
-    SHOW_TITLE,
+    INIT_TASK5,
+    IDLE,
     SHOW_HA,
     SHOW_TAS,
     SHOW_OB
 };
 
-int Task2_Tick(int state)
+int Task5_Tick(int state)
 {
+
     switch (state)
     {
-    case INIT_TASK2:
-        state = SHOW_TITLE;
+    case INIT_TASK5:
+        state = IDLE;
         break;
 
-    case SHOW_TITLE:
+    case IDLE:
         if (D)
         {
             state = SHOW_TAS;
@@ -251,85 +284,94 @@ int Task2_Tick(int state)
         }
         else
         {
-            state = SHOW_TITLE;
+            state = IDLE;
         }
         break;
 
     case SHOW_TAS:
-        state = SHOW_TITLE;
+        state = IDLE;
         break;
 
     case SHOW_HA:
-        state = SHOW_TITLE;
+        state = IDLE;
         break;
 
     case SHOW_OB:
-        state = SHOW_TITLE;
+        state = IDLE;
         break;
     }
 
     switch (state)
     {
-    case INIT_TASK2:
+    case INIT_TASK5:
         break;
 
-    case SHOW_TITLE:
+    case IDLE:
+        // Display the title screen
         // title();
         break;
 
     case SHOW_HA:
+     
         if (currNote < 261)
         {
-            if (currNote == 0)
+      if (arrowCounter == 0)
             {
-                FillScreen(BLACK);
+
+                generateRandomArrow(); // Generate a new arrow
             }
 
-            else if (currNote % 4 == 0 )
+            updateArrowState(); // Update the arrow state
+
+            arrowCounter++;
+            if (arrowCounter >= arrowDuration)
             {
-                generateRandomArrow();
-            }
-            else 
-            {
-                FillScreen(BLACK);
+                arrowCounter = 0;
             }
         }
-       // FillScreen(BLACK);
         break;
 
     case SHOW_TAS:
         if (currNote < 159)
         {
-            if (currNote == 0)
+          if (arrowCounter == 0)
             {
-                FillScreen(BLACK);
-                
+
+                generateRandomArrow(); // Generate a new arrow
             }
 
-            if (currNote % 4 == 0 && i <= pgm_read_word(&noteLength[currNote]))
+            updateArrowState(); // Update the arrow state
+
+            arrowCounter++;
+            if (arrowCounter >= arrowDuration)
             {
-                generateRandomArrow();
-            }
-            else
-            {
-                FillScreen(BLACK);
+                arrowCounter = 0;
             }
         }
         break;
 
     case SHOW_OB:
-        if (currNote < 202){
-        
+        if (currNote < 202)
+        {
+   
+           if (currNote == 0)
+            {
 
-            if (currNote % 2 != 0 )
-            {
-                generateRandomArrow();
+                FillScreen(BLACK); // Generate a new arrow
             }
-        
-         else 
+
+            if (arrowCounter == 0)
             {
-                FillScreen(BLACK);
-                
+
+                generateRandomArrow(); // Generate a new arrow
+            }
+
+            updateArrowState(); // Update the arrow state
+
+            arrowCounter++;
+            if (arrowCounter >= arrowDuration)
+            {
+                arrowCounter = 0;
             }
         }
         break;
@@ -337,6 +379,8 @@ int Task2_Tick(int state)
 
     return state;
 }
+
+
 
 typedef struct _task
 {
@@ -348,7 +392,11 @@ typedef struct _task
 
 const unsigned long GCD_PERIOD = 1;
 const unsigned long TASK1_PERIOD = 10;
-const unsigned long TASK2_PERIOD = 1000;
+const unsigned long TASK2_PERIOD = 10;
+const unsigned long TASK3_PERIOD = 13;
+const unsigned long TASK4_PERIOD = 10;
+const unsigned long TASK5_PERIOD = 1000;
+
 
 task tasks[NUM_TASKS];
 
@@ -405,13 +453,35 @@ int main(void)
     tasks[1].TickFct = &Task2_Tick;
     ++i;
 
+
+    tasks[2].period = TASK3_PERIOD;
+    tasks[2].state = INIT_TASK3;
+    tasks[2].elapsedTime = tasks[i].period;
+    tasks[2].TickFct = &Task3_Tick;
+    ++i;
+
+    
+    tasks[3].period = TASK4_PERIOD;
+    tasks[3].state = INIT_TASK4;
+    tasks[3].elapsedTime = tasks[i].period;
+    tasks[3].TickFct = &Task4_Tick;
+    ++i;
+
+    
+    tasks[4].period = TASK5_PERIOD;
+    tasks[4].state = INIT_TASK5;
+    tasks[4].elapsedTime = tasks[i].period;
+    tasks[4].TickFct = &Task5_Tick;
+    ++i;
+
+
     TimerSet(GCD_PERIOD);
     TimerOn();
 
     title();
     while (1)
     {
-        serial_println(ADC_read(0));
+        serial_println(B);
     }
 
     return 0;
